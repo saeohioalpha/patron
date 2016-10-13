@@ -60,6 +60,7 @@ struct patron_curl_state {
   struct curl_httppost* last;
   membuffer header_buffer;
   membuffer body_buffer;
+  size_t download_byte_limit;
   int interrupt;
 };
 
@@ -83,12 +84,15 @@ static size_t session_write_handler(char* stream, size_t size, size_t nmemb, mem
  * user calls the "interrupt" method on the session or when the Ruby interpreter
  * is attempting to exit.
  */
-static int session_progress_handler(void *clientp, double dltotal, double dlnow, double ultotal, double ulnow) {
+static int session_progress_handler(void *clientp, size_t dltotal, size_t dlnow, size_t ultotal, size_t ulnow) {
   struct patron_curl_state* state = (struct patron_curl_state*) clientp;
-  UNUSED_ARGUMENT(dltotal);
   UNUSED_ARGUMENT(dlnow);
   UNUSED_ARGUMENT(ultotal);
   UNUSED_ARGUMENT(ulnow);
+  // Abort the call if the download byte limit has been reached
+  if(state->download_byte_limit != 0 && (dltotal > state->download_byte_limit)) {
+    state->interrupt = 1;
+  }
   return state->interrupt;
 }
 
@@ -635,7 +639,8 @@ static VALUE perform_request(VALUE self) {
   membuffer* body_buffer = NULL;
   CURLcode ret = 0;
 
-  state->interrupt = 0;  /* clear any interrupt flags */
+  state->interrupt = 0;            /* clear the interrupt flag */
+  state->download_byte_limit = 0;  /* clear the byte limit */
 
   header_buffer = &state->header_buffer;
   body_buffer = &state->body_buffer;
