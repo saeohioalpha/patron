@@ -46,7 +46,7 @@ static VALUE eConnectionFailed = Qnil;
 static VALUE ePartialFileError = Qnil;
 static VALUE eTimeoutError = Qnil;
 static VALUE eTooManyRedirects = Qnil;
-
+static VALUE eAborted = Qnil;
 
 struct curl_state {
   CURL* handle;
@@ -184,7 +184,11 @@ static struct curl_state* get_curl_state(VALUE self) {
     state->handle = curl_easy_init();
     curl_easy_setopt(state->handle, CURLOPT_NOSIGNAL, 1);
     curl_easy_setopt(state->handle, CURLOPT_NOPROGRESS, 0);
+#ifdef CURLOPT_XFERINFOFUNCTION
+    curl_easy_setopt(state->handle, CURLOPT_XFERINFOFUNCTION, &session_progress_handler);
+#else
     curl_easy_setopt(state->handle, CURLOPT_PROGRESSFUNCTION, &session_progress_handler);
+#endif
     curl_easy_setopt(state->handle, CURLOPT_PROGRESSDATA, state);
   }
 
@@ -616,7 +620,7 @@ static VALUE select_error(CURLcode code) {
     case CURLE_PARTIAL_FILE:          error = ePartialFileError;    break;
     case CURLE_OPERATION_TIMEDOUT:    error = eTimeoutError;        break;
     case CURLE_TOO_MANY_REDIRECTS:    error = eTooManyRedirects;    break;
-
+    case CURLE_ABORTED_BY_CALLBACK:   error = eAborted;             break;
     default: error = ePatronError;
   }
 
@@ -832,6 +836,7 @@ void Init_session_ext() {
   ePartialFileError = rb_const_get(mPatron, rb_intern("PartialFileError"));
   eTimeoutError = rb_const_get(mPatron, rb_intern("TimeoutError"));
   eTooManyRedirects = rb_const_get(mPatron, rb_intern("TooManyRedirects"));
+  eAborted = rb_const_get(mPatron, rb_intern("Aborted"));
 
   rb_define_module_function(mPatron, "libcurl_version", libcurl_version, 0);
 
