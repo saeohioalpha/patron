@@ -32,6 +32,8 @@
 #include "sglib.h"  /* Simple Generic Library -> http://sglib.sourceforge.net */
 
 #define UNUSED_ARGUMENT(x) (void)x
+#define INTERRUPT_ABORT 1
+#define INTERRUPT_DOWNLOAD_OVERFLOW 2
 
 static VALUE mPatron = Qnil;
 static VALUE mProxyType = Qnil;
@@ -91,8 +93,11 @@ static int session_progress_handler(void *clientp, size_t dltotal, size_t dlnow,
   UNUSED_ARGUMENT(ulnow);
   // Abort the call if the download byte limit has been reached
   if(state->download_byte_limit != 0 && (dltotal > state->download_byte_limit)) {
-    state->interrupt = 1;
+    state->interrupt = INTERRUPT_DOWNLOAD_OVERFLOW;
   }
+  
+  // If the interrupt value is anything except 0, the perform() call
+  // will be aborted by libCURL.
   return state->interrupt;
 }
 
@@ -135,7 +140,7 @@ static void cs_list_interrupt(VALUE data) {
   UNUSED_ARGUMENT(data);
 
   SGLIB_LIST_MAP_ON_ELEMENTS(struct patron_curl_state_list, cs_list, item, next, {
-    item->state->interrupt = 1;
+    item->state->interrupt = INTERRUPT_ABORT;
   });
 }
 
@@ -770,7 +775,7 @@ static VALUE session_reset(VALUE self) {
  */
 static VALUE session_interrupt(VALUE self) {
   struct patron_curl_state *state = get_patron_curl_state(self);
-  state->interrupt = 1;
+  state->interrupt = INTERRUPT_ABORT;
   return self;
 }
 
