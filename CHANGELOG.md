@@ -1,3 +1,7 @@
+* Add `Session#download_byte_limit` for limiting the permitted download size.
+  This can be very useful in dealing with untrusted download sources, which might attempt
+  to send very large responses to overflow the receiving client.
+  
 ### 0.8.0
 
 * Add `Response#inspectable_body`, `Response#decoded_body`. `decoded_body` will atempt to decode
